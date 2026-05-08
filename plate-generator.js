@@ -515,56 +515,59 @@
     LOG('fetching playlog list...');
     const listDoc = await getDoc('/mobile/record/playlog');
 
-    // diagnostic
-    LOG('list: total forms=', listDoc.querySelectorAll('form').length);
-    LOG('list: forms w/ playlogDetail=', listDoc.querySelectorAll('form[action*="playlogDetail"]').length);
-    LOG('list: input[name=idx] count=', listDoc.querySelectorAll('input[name="idx"]').length);
-    LOG('list: input[name=token] count=', listDoc.querySelectorAll('input[name="token"]').length);
-
-    // token: try multiple names
-    let token = '';
-    const tokenSelectors = ['input[name="token"]', 'input[name="_token"]', 'input[type="hidden"][name*="token" i]'];
-    for (const sel of tokenSelectors) {
-      const el = listDoc.querySelector(sel);
-      if (el && el.value) { token = el.value; LOG('token found via', sel); break; }
+    // collect (idx, token, action) tuples — each form is self-contained
+    const allForms = [...listDoc.querySelectorAll('form')];
+    const pairs = [];
+    for (const f of allForms) {
+      const idxEl = f.querySelector('input[name="idx"]');
+      const tokEl = f.querySelector('input[name="token"]');
+      if (idxEl && idxEl.value && tokEl && tokEl.value) {
+        pairs.push({
+          idx: idxEl.value,
+          token: tokEl.value,
+          action: f.getAttribute('action') || '',
+          method: (f.getAttribute('method') || 'POST').toUpperCase(),
+        });
+      }
     }
-    if (!token) {
-      alert('找不到 token，請確認你已登入並重新整理頁面後再試。');
-      return;
-    }
+    LOG('list: pair count=', pairs.length);
+    if (pairs.length) LOG('list: first pair=', pairs[0]);
 
-    // idx: collect all hidden idx inputs (each play row has one inside its form)
-    const idxInputs = [...listDoc.querySelectorAll('input[name="idx"]')];
-    let idxs = idxInputs.map((i) => i.value).filter(Boolean);
-    // dedup while preserving order
-    idxs = [...new Set(idxs)];
-    LOG('list: idx values=', idxs);
-
-    if (!idxs.length) {
-      // last-ditch: look at form actions to extract idx from URL
-      const actions = [...listDoc.querySelectorAll('form[action*="playlog"]')].map((f) => f.getAttribute('action'));
-      LOG('list: form actions=', actions);
+    if (!pairs.length) {
       alert('找不到任何遊玩紀錄。請開 DevTools Console 把 [Plate] 開頭的 log 貼回來。');
       return;
     }
-    idxs = idxs.slice(0, 3);
-    LOG('top idx:', idxs);
+
+    const top = pairs.slice(0, 3);
+    LOG('top idx:', top.map((p) => p.idx));
 
     const plays = [];
-    for (const idx of idxs) {
-      LOG('fetching detail idx=', idx);
-      const body = new URLSearchParams({ idx, token }).toString();
-      const res = await fetch('/mobile/record/playlogDetail/sendPlaylogDetail', {
-        method: 'POST',
+    for (const p of top) {
+      LOG('fetching detail idx=', p.idx, 'action=', p.action);
+      const body = new URLSearchParams({ idx: p.idx, token: p.token }).toString();
+      // resolve action against base
+      let url = p.action;
+      if (!url) {
+        url = '/mobile/record/playlogDetail/';
+      } else if (!/^https?:/.test(url) && !url.startsWith('/')) {
+        url = '/mobile/record/' + url;
+      }
+      const res = await fetch(url, {
+        method: p.method || 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
         body,
       });
+      LOG('detail response status=', res.status, 'url=', res.url);
       if (!res.ok) {
-        WARN('detail fetch failed', idx, res.status);
+        WARN('detail fetch failed', p.idx, res.status);
         continue;
       }
       const html = await res.text();
+      LOG('detail html length=', html.length);
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const detail = parseDetail(doc);
       LOG('parsed', detail);
@@ -578,9 +581,22 @@
     }
 
     LOG('fetching player data...');
-    const playerDoc = await getDoc('/mobile/home/playerData');
-    const player = parsePlayer(playerDoc);
-    LOG('player', player);
+    // try multiple endpoints; first one that yields a non-empty player wins
+    const playerCandidates = ['/mobile/home/', '/mobile/', '/mobile/home/playerData'];
+    let player = { name: '', rating: '', title: '', avatar: '', lv: '' };
+    for (const url of playerCandidates) {
+      try {
+        const playerDoc = await getDoc(url);
+        const p = parsePlayer(playerDoc);
+        LOG('player @', url, '=', p);
+        if (p.name || p.rating) {
+          player = p;
+          break;
+        }
+      } catch (e) {
+        WARN('player fetch failed @', url, e);
+      }
+    }
 
     const db = await fetchArcadeSongs();
     const idx = buildSongIndex(db);
