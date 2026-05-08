@@ -128,15 +128,34 @@
     return v < 1100 ? Math.round(v * 10000) : Math.round(v);
   }
 
+  const RANK_MAP = ['D','C','B','BB','BBB','A','AA','AAA','S','S+','SS','SS+','SSS','SSS+'];
   function parseRankFromSrc(src) {
     if (!src) return '';
-    const m = src.match(/icon_rank_([a-z]+)/i);
-    if (!m) return '';
-    let r = m[1].toUpperCase();
-    if (r === 'SSSP') return 'SSS+';
-    if (r === 'SSP') return 'SS+';
-    if (r === 'SP') return 'S+';
-    return r;
+    // numeric form: icon_rank_6.png
+    const mn = src.match(/icon_rank_(\d+)/i);
+    if (mn) return RANK_MAP[parseInt(mn[1], 10)] || '';
+    // letter form (legacy)
+    const ml = src.match(/icon_rank_([a-z]+)/i);
+    if (ml) {
+      let r = ml[1].toUpperCase();
+      if (r === 'SSSP') return 'SSS+';
+      if (r === 'SSP') return 'SS+';
+      if (r === 'SP') return 'S+';
+      return r;
+    }
+    return '';
+  }
+
+  function parseRatingFromImages(root) {
+    const imgs = root ? root.querySelectorAll('.player_rating_num_block img') : [];
+    let s = '';
+    for (const img of imgs) {
+      const src = img.getAttribute('src') || '';
+      const m = src.match(/rating_[a-z]+_(\d+|comma)/i);
+      if (!m) continue;
+      s += m[1].toLowerCase() === 'comma' ? '.' : String(parseInt(m[1], 10));
+    }
+    return s;
   }
 
   function detectDifficulty(root) {
@@ -160,34 +179,18 @@
   }
 
   function parseJudges(root) {
-    const out = { cp: 0, perfect: 0, great: 0, good: 0, miss: 0 };
+    // CHUNITHM-NET only displays 4 judges: critical / justice / attack / miss
+    const out = { critical: 0, justice: 0, attack: 0, miss: 0 };
     if (!root) return out;
-
-    // class-based first
-    const classMap = {
-      cp: '.text_critical_perfect',
-      perfect: '.text_perfect',
-      great: '.text_great',
-      good: '.text_good',
-      miss: '.text_miss',
+    const sel = {
+      critical: '.text_critical.play_data_detail_judge_text, .text_critical',
+      justice: '.text_justice.play_data_detail_judge_text, .text_justice',
+      attack: '.text_attack.play_data_detail_judge_text, .text_attack',
+      miss: '.text_miss.play_data_detail_judge_text, .text_miss',
     };
-    for (const k in classMap) {
-      const el = root.querySelector(classMap[k]);
+    for (const k in sel) {
+      const el = root.querySelector(sel[k]);
       if (el) out[k] = num(el.textContent);
-    }
-
-    // label-based fallback
-    const labelMap = {
-      cp: /critical\s*perfect/i,
-      perfect: /^perfect$/i,
-      great: /^great$/i,
-      good: /^good$/i,
-      miss: /^miss$/i,
-    };
-    for (const k in labelMap) {
-      if (out[k]) continue;
-      const v = findValueByLabel(root, labelMap[k]);
-      if (v) out[k] = num(v);
     }
     return out;
   }
@@ -195,56 +198,53 @@
   function parseDetail(doc) {
     const root = doc.querySelector('.box01') || doc.body;
     if (!_dumpedDetail) {
-      _dumpedDetail = true;
-      debugDump('DETAIL', doc);
+      const probe = root.querySelector('.play_musicdata_title');
+      if (!probe) { _dumpedDetail = true; debugDump('DETAIL', doc); }
     }
 
     const title = text(root, '.play_musicdata_title');
-    const lvText =
-      text(root, '.play_musicdata_lv') || text(root, '.play_musicdata_difficulty');
-
     const scoreText = text(root, '.play_musicdata_score_text');
-    const rankSrc =
-      attr(root, '.play_musicdata_score_rank img', 'src') ||
-      attr(root, '.play_musicdata_icon img', 'src');
 
-    const difficulty = detectDifficulty(root);
+    // rank: numeric icon inside .play_musicdata_icon, e.g. icon_rank_6.png
+    const rankImgs = [...root.querySelectorAll('.play_musicdata_icon img')];
+    let rankSrc = '';
+    for (const img of rankImgs) {
+      const s = img.getAttribute('src') || '';
+      if (/icon_rank_/i.test(s)) { rankSrc = s; break; }
+    }
+
+    // difficulty: from .play_track_result img src (musiclevel_master.png etc.)
+    const diffImgSrc = attr(root, '.play_track_result img', 'src');
+    let difficulty = '';
+    if (diffImgSrc) {
+      const m = diffImgSrc.match(/musiclevel_([a-z]+)/i);
+      if (m) difficulty = m[1].toLowerCase();
+    }
+    if (!difficulty) difficulty = detectDifficulty(root);
 
     const flags = {
-      clear: !!root.querySelector('img[src*="icon_clear"]'),
-      fc: !!root.querySelector('img[src*="icon_fullcombo"]'),
-      aj: !!root.querySelector('img[src*="icon_alljustice"]'),
-      newRecord: !!root.querySelector('img[src*="icon_newrecord"]'),
+      clear: !!root.querySelector('.play_musicdata_icon img[src*="icon_clear"]'),
+      fc: !!root.querySelector('.play_musicdata_icon img[src*="icon_fullcombo"]'),
+      aj: !!root.querySelector('.play_musicdata_icon img[src*="icon_alljustice"]'),
+      newRecord: !!root.querySelector('.play_musicdata_score_img img[src*="icon_new"]'),
     };
 
     const judges = parseJudges(root);
 
-    const maxCombo =
-      num(text(root, '.play_musicdata_maxcombo')) ||
-      num(findValueByLabel(root, /max\s*combo/i));
+    const maxCombo = num(text(root, '.play_data_detail_maxcombo_block'));
 
-    const fast = num(findValueByLabel(root, /^fast$/i));
-    const late = num(findValueByLabel(root, /^late$/i));
+    const date = text(root, '.box_inner01');
 
-    const date =
-      text(root, '.play_datalist_date') ||
-      text(root, '.box_inner01 .text_b');
-
-    const coverFromSega =
-      attr(root, '.play_jacket_img img', 'src') ||
-      attr(root, '.musicdata_jacket img', 'src');
+    const coverFromSega = attr(root, '.play_jacket_img img', 'src');
 
     return {
       title,
-      level: lvText,
       score: parseScore(scoreText),
       rank: parseRankFromSrc(rankSrc),
       difficulty,
       flags,
       judges,
       maxCombo,
-      fast,
-      late,
       date,
       coverFromSega,
     };
@@ -253,24 +253,23 @@
   function parsePlayer(doc) {
     const root = doc.body;
     if (!_dumpedPlayer) {
-      _dumpedPlayer = true;
-      debugDump('PLAYER', doc);
+      const probe = root.querySelector('.player_name_in');
+      if (!probe) { _dumpedPlayer = true; debugDump('PLAYER', doc); }
     }
-    const name =
-      text(root, '.player_name_in') ||
-      text(root, '.player_name_block .player_name') ||
-      text(root, '.player_name');
-    const rating =
-      text(root, '.player_rating_num') ||
-      text(root, '.player_rating');
+    const name = text(root, '.player_name_in');
+    let rating = parseRatingFromImages(root);
     const titleStr =
-      text(root, '.player_honor_text') ||
-      text(root, '.player_honor');
-    const avatar =
-      attr(root, '.player_chara_avatar img', 'src') ||
-      attr(root, '.avatar img', 'src');
+      text(root, '.player_honor_text span') ||
+      text(root, '.player_honor_text');
+    // fallback: pull rating from honor text "RATING X.YZ"
+    if (!rating && titleStr) {
+      const m = titleStr.match(/RATING\s*([\d.]+)/i);
+      if (m) rating = m[1];
+    }
+    const avatar = attr(root, '.player_chara img', 'src');
     const lv = text(root, '.player_lv');
-    return { name, rating, title: titleStr, avatar, lv };
+    const team = text(root, '.player_team_name');
+    return { name, rating, title: titleStr, avatar, lv, team };
   }
 
   // ---------- arcade-songs ----------
@@ -361,7 +360,7 @@
     if (s.flags.aj) flags.push(flagBadge('AJ', '#f0a500'));
     else if (s.flags.fc) flags.push(flagBadge('FC', '#2196f3'));
     else if (s.flags.clear) flags.push(flagBadge('CLEAR', '#4caf50'));
-    if (s.flags.newRecord) flags.push(flagBadge('NEW RECORD', '#d4537e'));
+    if (s.flags.newRecord) flags.push(flagBadge('NEW', '#d4537e'));
 
     const cover = s.cover || '';
 
@@ -373,7 +372,6 @@
         <div style="flex:1;margin-left:16px;display:flex;flex-direction:column;">
           <div style="display:flex;align-items:center;margin-bottom:6px;">
             <span style="background:${diffColor};color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.5px;">${esc(diffLabel)}</span>
-            <span style="margin-left:8px;font-size:14px;color:#555;font-weight:600;">Lv. ${esc(s.level || '?')}</span>
             <span style="margin-left:auto;font-size:12px;color:#999;">${esc(s.date || '')}</span>
           </div>
           <div style="font-size:20px;font-weight:700;color:#222;line-height:1.2;margin-bottom:8px;">${esc(s.title || '(unknown)')}</div>
@@ -383,15 +381,13 @@
             <span style="margin-left:auto;">${flags.join('')}</span>
           </div>
           <div style="display:flex;gap:6px;">
-            ${judgeBox('CRITICAL', s.judges.cp, '#ffcc00')}
-            ${judgeBox('PERFECT', s.judges.perfect, '#ff9966')}
-            ${judgeBox('GREAT', s.judges.great, '#66cc66')}
-            ${judgeBox('GOOD', s.judges.good, '#66aaff')}
+            ${judgeBox('CRITICAL', s.judges.critical, '#ffcc00')}
+            ${judgeBox('JUSTICE', s.judges.justice, '#ff9966')}
+            ${judgeBox('ATTACK', s.judges.attack, '#66cc66')}
             ${judgeBox('MISS', s.judges.miss, '#bbbbbb')}
           </div>
-          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:#666;">
-            <span>MAX COMBO: <b style="color:#222;">${esc(s.maxCombo)}</b></span>
-            <span>FAST: <b style="color:#222;">${esc(s.fast)}</b> / LATE: <b style="color:#222;">${esc(s.late)}</b></span>
+          <div style="margin-top:8px;font-size:12px;color:#666;">
+            MAX COMBO: <b style="color:#222;">${esc(s.maxCombo)}</b>
           </div>
         </div>
       </div>`;
