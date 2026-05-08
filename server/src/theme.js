@@ -1,0 +1,36 @@
+export const THEME = {
+  bgStart: '#ffe5f0',
+  bgEnd: '#e8e0ff',
+  card: '#ffffff',
+  text: '#222222',
+  textSub: '#777777',
+  accent: '#d4537e',
+  difficulty: {
+    basic: '#3ba84d',
+    advanced: '#e8a400',
+    expert: '#d8385c',
+    master: '#a040c0',
+    ultima: '#d83030',
+    worldsend: '#666666',
+  },
+  difficultyLabel: {
+    basic: 'BASIC',
+    advanced: 'ADVANCED',
+    expert: 'EXPERT',
+    master: 'MASTER',
+    ultima: 'ULTIMA',
+    worldsend: "WORLD'S END",
+  },
+  judge: {
+    critical: '#ffcc00',
+    justice: '#ff9966',
+    attack: '#66cc66',
+    miss: '#bbbbbb',
+  },
+  flag: {
+    aj: '#f0a500',
+    fc: '#2196f3',
+    clear: '#4caf50',
+    newRecord: '#d4537e',
+  },
+};

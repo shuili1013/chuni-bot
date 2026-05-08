@@ -10,6 +10,10 @@
     return;
   }
 
+  const SYNC_TOKEN = (typeof window !== 'undefined' && window.__chuniSyncToken) || '';
+  const SYNC_BASE = (typeof window !== 'undefined' && window.__chuniSyncBase) || '';
+  const SYNC_MODE = !!SYNC_TOKEN;
+
   // ---------- helpers ----------
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -584,6 +588,39 @@
       }
     }
 
+    if (SYNC_MODE) {
+      LOG('sync mode — posting to backend');
+      const base = SYNC_BASE || (await detectSyncBase());
+      if (!base) {
+        alert('找不到同步伺服器位址。請更新書籤或回 Discord 重新 /bind。');
+        return;
+      }
+      try {
+        const res = await fetch(base.replace(/\/$/, '') + '/sync', {
+          method: 'POST',
+          credentials: 'omit',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: SYNC_TOKEN,
+            player,
+            plays,
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        LOG('sync response', res.status, json);
+        if (!res.ok) {
+          alert('同步失敗：' + (json.error || res.status));
+          return;
+        }
+        showSyncResult(json);
+        return;
+      } catch (e) {
+        ERR('sync error', e);
+        alert('同步發生錯誤：' + (e && e.message ? e.message : e));
+        return;
+      }
+    }
+
     const db = await fetchArcadeSongs();
     const idx = buildSongIndex(db);
     const enriched = plays.map((p) => enrichSong(p, idx));
@@ -595,5 +632,60 @@
   } catch (e) {
     ERR(e);
     alert('產生圖卡失敗：' + (e && e.message ? e.message : e));
+  }
+
+  async function detectSyncBase() {
+    // bookmarklet may set window.__chuniSyncBase explicitly. If not, try the script's origin's API.
+    const scripts = [...document.scripts];
+    for (let i = scripts.length - 1; i >= 0; i--) {
+      const src = scripts[i].src || '';
+      if (/plate-generator\.js/.test(src)) {
+        try {
+          const u = new URL(src);
+          // by convention, sync server lives at https://chuni-bot.fly.dev
+          // user can override via window.__chuniSyncBase
+          // here we fall back to a guess based on script host? unsafe — return empty
+          break;
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return '';
+  }
+
+  function showSyncResult(json) {
+    const old = document.getElementById('chuni-plate-overlay');
+    if (old) old.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'chuni-plate-overlay';
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2147483647;
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;
+    `;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `
+      background:linear-gradient(135deg,#ffe5f0 0%,#e8e0ff 100%);
+      border-radius:14px;padding:28px 32px;max-width:92vw;
+      text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.3);
+    `;
+    wrap.innerHTML = `
+      <div style="font-size:18px;color:#888;margin-bottom:6px;letter-spacing:2px;">CHUNI BOT</div>
+      <div style="font-size:32px;font-weight:800;color:#d4537e;margin-bottom:12px;">✓ 同步完成</div>
+      <div style="font-size:16px;color:#333;line-height:1.7;">
+        玩家：<b>${(json.profile && json.profile.name) || '?'}</b><br>
+        Rating：<b>${(json.profile && json.profile.rating) || '?'}</b><br>
+        本次同步 <b>${json.plays || 0}</b> 場
+      </div>
+      <button id="chuni-close-overlay" style="margin-top:18px;background:#d4537e;color:#fff;border:0;padding:10px 28px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">關閉</button>
+      <div style="margin-top:14px;font-size:12px;color:#888;">回 Discord 用 <code>/rs</code> 看歷史</div>
+    `;
+    overlay.appendChild(wrap);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
+    document.getElementById('chuni-close-overlay').onclick = () => overlay.remove();
   }
 })();

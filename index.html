@@ -3,130 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CHUNITHM Plate Generator</title>
+<title>CHUNI Bot</title>
 <style>
-  :root {
-    --pink: #d4537e;
-    --bg1: #ffe5f0;
-    --bg2: #e8e0ff;
-  }
+  :root { --pink:#d4537e; --bg1:#ffe5f0; --bg2:#e8e0ff; }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
     font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
     background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
-    color: #222;
-    min-height: 100vh;
+    color: #222; min-height: 100vh;
   }
-  .wrap {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 48px 24px 80px;
-  }
-  h1 {
-    font-size: 32px;
-    margin: 0 0 8px;
-    letter-spacing: 1px;
-  }
-  .sub {
-    color: #777;
-    margin-bottom: 28px;
-  }
-  .card {
-    background: #fff;
-    border-radius: 14px;
-    padding: 24px 28px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.06);
-    margin-bottom: 20px;
-  }
-  .card h2 {
-    margin: 0 0 12px;
-    font-size: 18px;
-    color: var(--pink);
-    letter-spacing: 1px;
-  }
-  .card p, .card li { line-height: 1.7; color: #333; }
-  ol { padding-left: 22px; margin: 0; }
-  code {
-    background: #f3eef2;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 90%;
-  }
-  .bm {
-    display: inline-block;
-    background: var(--pink);
-    color: #fff !important;
-    padding: 14px 28px;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 18px;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 12px rgba(212,83,126,.35);
-    cursor: grab;
-    user-select: none;
-  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: 1px; }
+  .sub { color: #777; margin-bottom: 28px; }
+  .card { background: #fff; border-radius: 14px; padding: 24px 28px; box-shadow: 0 4px 16px rgba(0,0,0,.06); margin-bottom: 20px; }
+  .card h2 { margin: 0 0 12px; font-size: 18px; color: var(--pink); letter-spacing: 1px; }
+  ol, ul { padding-left: 22px; line-height: 1.8; margin: 0; }
+  code { background: #f3eef2; padding: 2px 6px; border-radius: 4px; font-size: 90%; }
+  .bm { display: inline-block; background: var(--pink); color: #fff !important; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 18px; letter-spacing: 1px; box-shadow: 0 4px 12px rgba(212,83,126,.35); cursor: grab; user-select: none; }
   .bm:active { cursor: grabbing; }
-  .bm-row {
-    display: flex; align-items: center; gap: 16px;
-    flex-wrap: wrap;
-  }
+  .bm-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .bm-hint { color: #888; font-size: 14px; }
-  .footer {
-    text-align: center;
-    margin-top: 40px;
-    font-size: 12px;
-    color: #999;
-  }
+  .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #999; }
   a { color: var(--pink); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>CHUNITHM Plate Generator</h1>
-  <div class="sub">把最近三首遊玩紀錄做成可分享的圖卡 PNG</div>
+  <h1>CHUNI Bot</h1>
+  <div class="sub">把成績同步到 Discord，<code>/rs</code> 一指生成圖卡</div>
 
   <div class="card">
-    <h2>▎ 安裝</h2>
-    <p>把下面的按鈕拖到瀏覽器書籤列：</p>
-    <div class="bm-row">
-      <a class="bm"
-         href="javascript:(function(d,s){s=d.createElement('script');s.src='https://shuili1013.github.io/chuni-bot/plate-generator.js?t='+Math.floor(Date.now()/60000);d.body.append(s);})(document);"
-         onclick="event.preventDefault();alert('請用拖曳的方式把這個按鈕拉到書籤列，不要直接點擊。');">
-        🎵 CHUNI Plate
-      </a>
-      <span class="bm-hint">← 拖到書籤列</span>
-    </div>
-    <p style="margin-top:14px;font-size:13px;color:#888;">
-      部署網址：<code>https://shuili1013.github.io/chuni-bot/</code>
-    </p>
-  </div>
-
-  <div class="card">
-    <h2>▎ 用法</h2>
+    <h2>▎ 推薦用法（搭配 Discord）</h2>
     <ol>
-      <li>登入 <a href="https://chunithm-net-eng.com/" target="_blank" rel="noopener">CHUNITHM-NET 國際版</a>。</li>
-      <li>登入後，在任一頁面點擊書籤列上的「🎵 CHUNI Plate」。</li>
-      <li>等幾秒，圖卡會顯示在畫面中央，按「下載 PNG」即可。</li>
+      <li>進邀請過 bot 的 Discord server，打 <code>/bind</code> 拿到專屬綁定連結。</li>
+      <li>打開連結，把按鈕拖到書籤列。</li>
+      <li>登入 <a href="https://chunithm-net-eng.com/" target="_blank" rel="noopener">CHUNITHM-NET</a>，點書籤同步。</li>
+      <li>回 Discord 用 <code>/rs</code> 選歌，bot 直接吐圖卡。</li>
     </ol>
   </div>
 
   <div class="card">
-    <h2>▎ 隱私</h2>
-    <p>
-      全程在你自己的瀏覽器執行，<b>沒有任何資料會送到第三方伺服器</b>。
-      腳本只會用你的 cookie 抓取自己的成績頁面、解析後在本機合成圖卡。
-      原始碼公開於 GitHub，可自行檢視。
-    </p>
+    <h2>▎ 不想用 Discord？仍可在本機產圖</h2>
+    <p>把下面按鈕拖到書籤列，登入 CHUNITHM-NET 後點它，會在頁面 overlay 出最近 3 場合併圖卡：</p>
+    <div class="bm-row">
+      <a class="bm"
+         href="javascript:(function(d,s){s=d.createElement('script');s.src='https://shuili1013.github.io/chuni-bot/plate-generator.js?t='+Math.floor(Date.now()/60000);d.body.append(s);})(document);"
+         onclick="event.preventDefault();alert('請用拖曳的方式拖到書籤列，不要直接點。');">
+        🎵 CHUNI Plate (Local)
+      </a>
+      <span class="bm-hint">← 拖到書籤列（本機產圖，不需要綁定）</span>
+    </div>
   </div>
 
   <div class="card">
-    <h2>▎ 已知限制</h2>
+    <h2>▎ 隱私 / 安全</h2>
     <ul>
-      <li>僅支援國際版（<code>chunithm-net-eng.com</code>），日版未支援。</li>
-      <li>SEGA 改版可能造成 selector 失效；若圖卡欄位不對，請開 DevTools Console 把 <code>[Plate]</code> 開頭的 log 貼來回報。</li>
-      <li>封面若無法載入，會 fallback 到 SEGA 原始封面。</li>
+      <li>抓資料 100% 在你瀏覽器裡執行，cookie 不會送到第三方。</li>
+      <li>同步到 bot 時只送解析後的成績資料（玩家名 / 分數 / 判定數），不送 cookie。</li>
+      <li>Bot 端只能用 sync token 寫入該 token 對應的帳號資料。</li>
+      <li>用 <code>/unbind</code> 可隨時刪除你在 bot 端的所有資料。</li>
     </ul>
   </div>
 

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CHUNI Bot — 綁定書籤</title>
+<style>
+  :root { --pink:#d4537e; --bg1:#ffe5f0; --bg2:#e8e0ff; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+    background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+    min-height: 100vh; color: #222;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { margin: 0 0 8px; font-size: 28px; }
+  .sub { color: #777; margin-bottom: 24px; }
+  .card {
+    background: #fff; border-radius: 14px;
+    padding: 24px 28px; margin-bottom: 18px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 16px; color: var(--pink); letter-spacing: 1px; }
+  code { background: #f3eef2; padding: 2px 6px; border-radius: 4px; font-size: 90%; word-break: break-all; }
+  .bm {
+    display: inline-block; background: var(--pink); color: #fff !important;
+    padding: 14px 28px; border-radius: 10px; text-decoration: none;
+    font-weight: 700; font-size: 18px; letter-spacing: 1px;
+    box-shadow: 0 4px 12px rgba(212,83,126,.35);
+    cursor: grab; user-select: none;
+  }
+  .bm:active { cursor: grabbing; }
+  .bm-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .bm-hint { color: #888; font-size: 14px; }
+  .err { color: #c00; font-weight: 700; }
+  ol { padding-left: 22px; line-height: 1.8; margin: 0; }
+  textarea { width: 100%; min-height: 120px; font-family: monospace; font-size: 11px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎵 CHUNI Bot 綁定</h1>
+  <div class="sub">把專屬書籤拖到書籤列，就能同步成績到 Discord。</div>
+
+  <div class="card" id="status-card">
+    <h2>▎ 你的書籤</h2>
+    <div id="bm-container">載入中...</div>
+  </div>
+
+  <div class="card">
+    <h2>▎ 用法</h2>
+    <ol>
+      <li>把上面那個粉紅按鈕拖到瀏覽器書籤列。</li>
+      <li>登入 <a href="https://chunithm-net-eng.com/" target="_blank" rel="noopener">CHUNITHM-NET 國際版</a>。</li>
+      <li>登入後，在任一頁面點剛拖好的書籤。</li>
+      <li>看到「✓ 同步完成」就成了。回 Discord 用 <code>/rs</code> 看歷史。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>▎ 安全提醒</h2>
+    <ul>
+      <li>書籤裡含有你的 sync token — 不要把書籤的網址貼給別人。</li>
+      <li>token 洩漏時用 <code>/bind rotate:true</code> 換新（舊書籤即失效）。</li>
+      <li>用 <code>/unbind</code> 可隨時刪除全部資料。</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('u');
+  const baseSync = params.get('b') || ''; // server URL set by /bind
+  const container = document.getElementById('bm-container');
+
+  if (!token) {
+    container.innerHTML = '<div class="err">URL 沒有 token。回 Discord 用 <code>/bind</code> 取得綁定連結。</div>';
+    return;
+  }
+
+  const scriptUrl = location.origin + location.pathname.replace(/\/bind\/?$/, '/plate-generator.js');
+  const tokenJson = JSON.stringify(token);
+  const baseJson = JSON.stringify(baseSync);
+  const code = `javascript:(function(d,s){window.__chuniSyncToken=${tokenJson};window.__chuniSyncBase=${baseJson};s=d.createElement('script');s.src=${JSON.stringify(scriptUrl)}+'?t='+Math.floor(Date.now()/60000);d.body.append(s);})(document);`;
+
+  container.innerHTML = `
+    <div class="bm-row">
+      <a class="bm" href="${code.replace(/"/g, '&quot;')}" onclick="event.preventDefault();alert('請用拖曳的方式拖到書籤列，不要直接點。');">🎵 CHUNI Sync</a>
+      <span class="bm-hint">← 拖到書籤列</span>
+    </div>
+    <p style="margin-top:14px;font-size:13px;color:#888;">
+      無法拖曳？把下面這段複製到一個新書籤的 URL 欄位：
+    </p>
+    <textarea readonly>${code}</textarea>
+  `;
+})();
+</script>
+</body>
+</html>
