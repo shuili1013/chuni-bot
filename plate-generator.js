@@ -471,24 +471,39 @@
     LOG('fetching playlog list...');
     const listDoc = await getDoc('/mobile/record/playlog');
 
-    const tokenEl = listDoc.querySelector('input[name="token"]');
-    if (!tokenEl) {
+    // diagnostic
+    LOG('list: total forms=', listDoc.querySelectorAll('form').length);
+    LOG('list: forms w/ playlogDetail=', listDoc.querySelectorAll('form[action*="playlogDetail"]').length);
+    LOG('list: input[name=idx] count=', listDoc.querySelectorAll('input[name="idx"]').length);
+    LOG('list: input[name=token] count=', listDoc.querySelectorAll('input[name="token"]').length);
+
+    // token: try multiple names
+    let token = '';
+    const tokenSelectors = ['input[name="token"]', 'input[name="_token"]', 'input[type="hidden"][name*="token" i]'];
+    for (const sel of tokenSelectors) {
+      const el = listDoc.querySelector(sel);
+      if (el && el.value) { token = el.value; LOG('token found via', sel); break; }
+    }
+    if (!token) {
       alert('找不到 token，請確認你已登入並重新整理頁面後再試。');
       return;
     }
-    const token = tokenEl.value;
-    LOG('token ok');
 
-    const rows = [...listDoc.querySelectorAll('.frame02.box')].filter((r) =>
-      r.querySelector('form[action*="playlogDetail"]'),
-    );
-    if (!rows.length) {
-      alert('找不到任何遊玩紀錄。請確認你已登入。');
+    // idx: collect all hidden idx inputs (each play row has one inside its form)
+    const idxInputs = [...listDoc.querySelectorAll('input[name="idx"]')];
+    let idxs = idxInputs.map((i) => i.value).filter(Boolean);
+    // dedup while preserving order
+    idxs = [...new Set(idxs)];
+    LOG('list: idx values=', idxs);
+
+    if (!idxs.length) {
+      // last-ditch: look at form actions to extract idx from URL
+      const actions = [...listDoc.querySelectorAll('form[action*="playlog"]')].map((f) => f.getAttribute('action'));
+      LOG('list: form actions=', actions);
+      alert('找不到任何遊玩紀錄。請開 DevTools Console 把 [Plate] 開頭的 log 貼回來。');
       return;
     }
-    const idxs = rows
-      .slice(0, 3)
-      .map((r) => r.querySelector('form[action*="playlogDetail"] input[name="idx"]').value);
+    idxs = idxs.slice(0, 3);
     LOG('top idx:', idxs);
 
     const plays = [];
