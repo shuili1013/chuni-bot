@@ -95,6 +95,32 @@
     return '';
   }
 
+  // ---------- diagnostic ----------
+  let _dumpedDetail = false;
+  let _dumpedPlayer = false;
+  function debugDump(label, doc) {
+    try {
+      const classes = new Set();
+      doc.querySelectorAll('[class]').forEach((el) =>
+        el.classList.forEach((c) => classes.add(c)),
+      );
+      const sorted = [...classes].sort();
+      LOG(`=== ${label} CLASSES (${sorted.length}) ===`);
+      LOG(sorted.join(' '));
+      const imgs = [...doc.querySelectorAll('img')]
+        .map((i) => i.getAttribute('src'))
+        .filter(Boolean);
+      LOG(`=== ${label} IMG SRCS (${imgs.length}) ===`);
+      LOG(imgs.slice(0, 40).join('\n'));
+      const body = doc.body ? doc.body.innerHTML : '';
+      LOG(`=== ${label} BODY SAMPLE (${body.length} chars) ===`);
+      LOG(body.slice(0, 4000));
+      LOG(`=== ${label} END ===`);
+    } catch (e) {
+      WARN('debugDump failed', e);
+    }
+  }
+
   // ---------- parsers ----------
   function parseScore(s) {
     const v = num(s);
@@ -168,6 +194,14 @@
 
   function parseDetail(doc) {
     const root = doc.querySelector('.box01') || doc.body;
+    // diagnostic on first call when nothing matches
+    if (!_dumpedDetail) {
+      const probe = root.querySelector('.play_musicdata_title');
+      if (!probe) {
+        _dumpedDetail = true;
+        debugDump('DETAIL', doc);
+      }
+    }
 
     const title = text(root, '.play_musicdata_title');
     const lvText =
@@ -222,6 +256,16 @@
 
   function parsePlayer(doc) {
     const root = doc.body;
+    if (!_dumpedPlayer) {
+      const probe =
+        root.querySelector('.player_name_in') ||
+        root.querySelector('.player_name_block .player_name') ||
+        root.querySelector('.player_name');
+      if (!probe) {
+        _dumpedPlayer = true;
+        debugDump('PLAYER', doc);
+      }
+    }
     const name =
       text(root, '.player_name_in') ||
       text(root, '.player_name_block .player_name') ||
