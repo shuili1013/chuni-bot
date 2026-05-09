@@ -84,23 +84,59 @@ function parseLayers(json) {
   }
 }
 
-function filterAvatarLayers(layers) {
-  // SEGA's CHU_UI_Avatar_Tex_* are tile textures meant to fill specific small
-  // body regions via CSS positioning. Without that CSS we can't place them
-  // correctly, so they only smear the avatar. Drop them.
-  return (layers || []).filter((u) => !/\/CHU_UI_Avatar_Tex_/i.test(u));
-}
+// Frame-relative layer positions, ripped from SEGA's contents.css
+// (.avatar_base is 272×330; each layer below is positioned within that frame)
+const AVATAR_FRAME_W = 272;
+const AVATAR_FRAME_H = 330;
+const AVATAR_LAYER_SPECS = [
+  { name: 'back',       w: 272, h: 330, top: 25,  left: 0,   tx: 0,    ty: 0    },
+  { name: 'skinfoot_r', w: 42,  h: 52,  top: 280, left: 84,  tx: 0,    ty: -204 },
+  { name: 'skinfoot_l', w: 42,  h: 52,  top: 280, left: 147, tx: -42,  ty: -204 },
+  { name: 'skin',       w: 128, h: 204, top: 93,  left: 72,  tx: 0,    ty: 0    },
+  { name: 'wear',       w: 258, h: 218, top: 106, left: 7,   tx: 0,    ty: 0    },
+  { name: 'face',       w: 58,  h: 64,  top: 100, left: 107, tx: 0,    ty: 0    },
+  { name: 'faceCover',  w: 116, h: 104, top: 96,  left: 78,  tx: 0,    ty: 0    },
+  { name: 'head',       w: 200, h: 150, top: 28,  left: 37,  tx: 0,    ty: 0    },
+  { name: 'hand_r',     w: 36,  h: 72,  top: 178, left: 52,  tx: 0,    ty: 0    },
+  { name: 'hand_l',     w: 36,  h: 72,  top: 178, left: 184, tx: 0,    ty: 0    },
+  { name: 'item_r',     w: 100, h: 272, top: 50,  left: 9,   tx: 0,    ty: 0,    rot: -5 },
+  { name: 'item_l',     w: 100, h: 272, top: 50,  left: 163, tx: -100, ty: 0,    rot: 5  },
+  { name: 'front',      w: 272, h: 294, top: 30,  left: 0,   tx: 0,    ty: 0    },
+];
 
-async function drawAvatarLayers(ctx, layers, x, y, size) {
-  const filtered = filterAvatarLayers(layers);
-  if (!filtered.length) return false;
-  const imgs = await Promise.all(filtered.map((u) => tryLoadImage(u)));
+// plate-generator.js scrapes URLs in this exact order, so we pair by index.
+async function drawAvatarLayers(ctx, layerUrls, frameX, frameY, frameW) {
+  if (!layerUrls || !layerUrls.length) return false;
+  const scale = frameW / AVATAR_FRAME_W;
+  const imgs = await Promise.all(layerUrls.map((u) => tryLoadImage(u)));
   let drew = false;
-  for (const img of imgs) {
-    if (img) {
-      ctx.drawImage(img, x, y, size, size);
-      drew = true;
+  for (let i = 0; i < AVATAR_LAYER_SPECS.length && i < imgs.length; i++) {
+    const img = imgs[i];
+    const spec = AVATAR_LAYER_SPECS[i];
+    if (!img) continue;
+    ctx.save();
+    ctx.translate(frameX + spec.left * scale, frameY + spec.top * scale);
+    if (spec.rot) {
+      // SEGA rotates around the layer's box center via CSS transform on the box
+      const cx = (spec.w * scale) / 2;
+      const cy = (spec.h * scale) / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate((spec.rot * Math.PI) / 180);
+      ctx.translate(-cx, -cy);
     }
+    ctx.beginPath();
+    ctx.rect(0, 0, spec.w * scale, spec.h * scale);
+    ctx.clip();
+    // draw image at its natural size (scaled), translated by tx/ty
+    ctx.drawImage(
+      img,
+      spec.tx * scale,
+      spec.ty * scale,
+      img.width * scale,
+      img.height * scale,
+    );
+    ctx.restore();
+    drew = true;
   }
   return drew;
 }
@@ -229,31 +265,35 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.card;
   ctx.fill();
 
-  // ===== LEFT: chara avatar (single pre-composed image from SEGA) =====
-  const AV_X = PAD + 24;
+  // ===== LEFT: layered avatar (composed from SEGA CSS positioning) =====
+  const AV_X = PAD + 16;
   const AV_Y = PAD + 36;
-  const AV_W = 220;
-  const charaImg = await tryLoadImage(player.player_avatar);
-  ctx.fillStyle = '#f5f5f5';
-  roundedRect(ctx, AV_X, AV_Y, AV_W, AV_W, 14);
-  ctx.fill();
-  if (charaImg) {
-    ctx.save();
-    roundedRect(ctx, AV_X, AV_Y, AV_W, AV_W, 14);
-    ctx.clip();
-    // chara images aren't always square — fit by contain
-    const ratio = charaImg.width / charaImg.height;
-    let dw = AV_W, dh = AV_W;
-    if (ratio > 1) dh = AV_W / ratio;
-    else dw = AV_W * ratio;
-    ctx.drawImage(charaImg, AV_X + (AV_W - dw) / 2, AV_Y + (AV_W - dh) / 2, dw, dh);
-    ctx.restore();
-  } else {
-    ctx.font = `14px ${fontFamily}`;
-    ctx.fillStyle = THEME.textSub;
-    ctx.textAlign = 'center';
-    ctx.fillText('(no avatar)', AV_X + AV_W / 2, AV_Y + AV_W / 2);
-    ctx.textAlign = 'left';
+  const AV_W = 240;            // frame width on canvas
+  const AV_H = (AV_W / AVATAR_FRAME_W) * AVATAR_FRAME_H; // ≈ 291
+  const layers = parseLayers(player.player_avatar_layers);
+  const drewAvatar = await drawAvatarLayers(ctx, layers, AV_X, AV_Y, AV_W);
+  if (!drewAvatar) {
+    // fallback: chara image
+    const charaImg = await tryLoadImage(player.player_avatar);
+    ctx.fillStyle = '#f5f5f5';
+    roundedRect(ctx, AV_X, AV_Y, AV_W, AV_H, 14);
+    ctx.fill();
+    if (charaImg) {
+      ctx.save();
+      roundedRect(ctx, AV_X, AV_Y, AV_W, AV_H, 14);
+      ctx.clip();
+      const ratio = charaImg.width / charaImg.height;
+      const dh = Math.min(AV_H, AV_W / ratio);
+      const dw = dh * ratio;
+      ctx.drawImage(charaImg, AV_X + (AV_W - dw) / 2, AV_Y + (AV_H - dh) / 2, dw, dh);
+      ctx.restore();
+    } else {
+      ctx.font = `14px ${fontFamily}`;
+      ctx.fillStyle = THEME.textSub;
+      ctx.textAlign = 'center';
+      ctx.fillText('(no avatar)', AV_X + AV_W / 2, AV_Y + AV_H / 2);
+      ctx.textAlign = 'left';
+    }
   }
 
   // header at very top-left
@@ -320,24 +360,21 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.text;
   fillTextSafe(ctx, play.title || '(unknown)', INFO_X, COVER_Y + 42, INFO_W);
 
-  // achievement rate — label first (above), then % big with NEW RECORD beside in red
+  // top row: ACHIEVEMENT RATE label + NEW RECORD! at same size
   ctx.font = `10px ${fontFamily}`;
   ctx.fillStyle = THEME.textSub;
   ctx.fillText('ACHIEVEMENT RATE', INFO_X + 4, COVER_Y + 76);
+  if (play.flag_new) {
+    const labelW = ctx.measureText('ACHIEVEMENT RATE').width;
+    ctx.fillStyle = '#e53935';
+    ctx.font = `bold 10px ${fontFamily}`;
+    ctx.fillText('NEW RECORD!', INFO_X + 4 + labelW + 12, COVER_Y + 76);
+  }
 
   const scoreStr = ((play.score || 0) / 10000).toFixed(4) + '%';
   ctx.fillStyle = diffColor;
   ctx.font = `bold 50px ${fontFamily}`;
   fillTextSafe(ctx, scoreStr, INFO_X, COVER_Y + 92);
-
-  // NEW RECORD inline next to the % — bold red
-  if (play.flag_new) {
-    ctx.font = `bold 50px ${fontFamily}`;
-    const scoreW = ctx.measureText(scoreStr).width;
-    ctx.fillStyle = '#e53935';
-    ctx.font = `bold 28px ${fontFamily}`;
-    ctx.fillText('NEW RECORD!', INFO_X + scoreW + 16, COVER_Y + 108);
-  }
 
   // flag pills
   let flagX = INFO_X;
