@@ -528,8 +528,9 @@
       return;
     }
 
-    const top = pairs.slice(0, 3);
-    LOG('top idx:', top.map((p) => p.idx));
+    // sync mode = pull all available; local mode = top 3 for the combined plate
+    const top = SYNC_MODE ? pairs : pairs.slice(0, 3);
+    LOG('top idx:', top.map((p) => p.idx), 'sync:', SYNC_MODE);
 
     const plays = [];
     for (const p of top) {
@@ -562,7 +563,7 @@
       const detail = parseDetail(doc);
       LOG('parsed', detail);
       plays.push(detail);
-      await sleep(400);
+      await sleep(SYNC_MODE ? 250 : 400);
     }
 
     if (!plays.length) {
