@@ -594,7 +594,7 @@
     LOG('fetching player data...');
     // try multiple endpoints; first one that yields a non-empty player wins
     const playerCandidates = ['/mobile/home/', '/mobile/', '/mobile/home/playerData'];
-    let player = { name: '', rating: '', title: '', avatar: '', lv: '' };
+    let player = { name: '', rating: '', title: '', avatar: '', lv: '', avatarLayers: [] };
     for (const url of playerCandidates) {
       try {
         const playerDoc = await getDoc(url);
@@ -606,6 +606,23 @@
         }
       } catch (e) {
         WARN('player fetch failed @', url, e);
+      }
+    }
+
+    // avatar customise page has the multi-layer avatar group (not on home)
+    if (!player.avatarLayers || !player.avatarLayers.length) {
+      try {
+        await sleep(SYNC_MODE ? 250 : 400);
+        const cusDoc = await getDoc('/mobile/collection/customise');
+        const cus = parsePlayer(cusDoc);
+        if (cus.avatarLayers && cus.avatarLayers.length) {
+          player.avatarLayers = cus.avatarLayers;
+          LOG('avatar layers from /mobile/collection/customise:', cus.avatarLayers.length);
+        } else {
+          LOG('no avatar layers found on /mobile/collection/customise');
+        }
+      } catch (e) {
+        WARN('customise fetch failed', e);
       }
     }
 
