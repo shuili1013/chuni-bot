@@ -296,15 +296,6 @@ export async function renderPlay(play, player) {
     }
   }
 
-  // header at very top-left
-  ctx.font = `bold 14px ${fontFamily}`;
-  ctx.fillStyle = THEME.accent;
-  ctx.textBaseline = 'top';
-  ctx.fillText('STAGE RESULT', AV_X, AV_Y - 4);
-  ctx.font = `10px ${fontFamily}`;
-  ctx.fillStyle = THEME.textSub;
-  ctx.fillText('THANK YOU FOR PLAYING!', AV_X, AV_Y + 12);
-
   // ===== CENTER: cover + song info =====
   const C_X = AV_X + AV_W + 24;
   const COVER = 170;
