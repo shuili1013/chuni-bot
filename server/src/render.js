@@ -84,9 +84,17 @@ function parseLayers(json) {
   }
 }
 
+function filterAvatarLayers(layers) {
+  // SEGA's CHU_UI_Avatar_Tex_* are tile textures meant to fill specific small
+  // body regions via CSS positioning. Without that CSS we can't place them
+  // correctly, so they only smear the avatar. Drop them.
+  return (layers || []).filter((u) => !/\/CHU_UI_Avatar_Tex_/i.test(u));
+}
+
 async function drawAvatarLayers(ctx, layers, x, y, size) {
-  if (!layers || !layers.length) return false;
-  const imgs = await Promise.all(layers.map((u) => tryLoadImage(u)));
+  const filtered = filterAvatarLayers(layers);
+  if (!filtered.length) return false;
+  const imgs = await Promise.all(filtered.map((u) => tryLoadImage(u)));
   let drew = false;
   for (const img of imgs) {
     if (img) {
@@ -171,7 +179,7 @@ async function drawPlayerBanner(ctx, player, x, y, w, h) {
 
 function drawRankBadge(ctx, rank, cx, cy, r) {
   if (!rank) return;
-  // outer rainbow ring
+  // outer rainbow ring (keep, looks nice)
   const ring = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
   ring.addColorStop(0.00, '#ff6b9d');
   ring.addColorStop(0.25, '#ffb648');
@@ -187,15 +195,10 @@ function drawRankBadge(ctx, rank, cx, cy, r) {
   ctx.beginPath();
   ctx.arc(cx, cy, r - 8, 0, Math.PI * 2);
   ctx.fill();
-  // rank text with gradient
-  const txt = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
-  txt.addColorStop(0, '#ff6b9d');
-  txt.addColorStop(0.5, '#ffb648');
-  txt.addColorStop(1, '#a78bfa');
-  ctx.fillStyle = txt;
-  // size by rank length
-  const fontSize = rank.length <= 1 ? r * 1.4 : rank.length <= 2 ? r * 1.05 : r * 0.78;
-  ctx.font = `900 ${fontSize}px ${fontFamily}`;
+  // rank text — solid accent color, plain JhengHei
+  ctx.fillStyle = THEME.accent;
+  const fontSize = rank.length <= 1 ? r * 1.3 : rank.length <= 2 ? r * 0.95 : r * 0.7;
+  ctx.font = `bold ${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(rank, cx, cy + 2);
@@ -326,13 +329,10 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.text;
   fillTextSafe(ctx, play.title || '(unknown)', INFO_X, COVER_Y + 42, INFO_W);
 
-  // achievement rate (big)
+  // achievement rate (big) — solid diff color, plain bold
   const scoreStr = ((play.score || 0) / 10000).toFixed(4) + '%';
-  const scoreGrad = ctx.createLinearGradient(INFO_X, 0, INFO_X + INFO_W, 0);
-  scoreGrad.addColorStop(0, '#ff6b9d');
-  scoreGrad.addColorStop(1, '#ff8a3d');
-  ctx.fillStyle = scoreGrad;
-  ctx.font = `900 50px ${fontFamily}`;
+  ctx.fillStyle = diffColor;
+  ctx.font = `bold 50px ${fontFamily}`;
   fillTextSafe(ctx, scoreStr, INFO_X, COVER_Y + 76);
   ctx.font = `10px ${fontFamily}`;
   ctx.fillStyle = THEME.textSub;
