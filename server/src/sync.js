@@ -35,6 +35,10 @@ syncRouter.post('/sync', async (req, res) => {
   }
 
   const now = Date.now();
+  const layersJson =
+    Array.isArray(player.avatarLayers) && player.avatarLayers.length
+      ? JSON.stringify(player.avatarLayers)
+      : '';
   stmts.updateProfile.run(
     player.name || '',
     player.rating || '',
@@ -42,6 +46,7 @@ syncRouter.post('/sync', async (req, res) => {
     player.title || '',
     player.avatar || '',
     player.team || '',
+    layersJson,
     now,
     user.discord_id,
   );

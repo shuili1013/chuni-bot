@@ -66,6 +66,101 @@ async function tryLoadImage(url) {
   }
 }
 
+function parseLayers(json) {
+  if (!json) return [];
+  try {
+    const a = JSON.parse(json);
+    return Array.isArray(a) ? a.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function drawAvatarLayers(ctx, layers, x, y, size) {
+  if (!layers || !layers.length) return false;
+  const imgs = await Promise.all(layers.map((u) => tryLoadImage(u)));
+  let drew = false;
+  for (const img of imgs) {
+    if (img) {
+      ctx.drawImage(img, x, y, size, size);
+      drew = true;
+    }
+  }
+  return drew;
+}
+
+async function drawPlayerBanner(ctx, player, x, y, w, h) {
+  // backdrop
+  ctx.fillStyle = '#fafafa';
+  roundedRect(ctx, x, y, w, h, 12);
+  ctx.fill();
+
+  const PADX = 14;
+  const ICON = h - 16;
+  let cx = x + PADX;
+
+  // composed avatar (multi-layer)
+  const layers = parseLayers(player.player_avatar_layers);
+  let drewAvatar = false;
+  if (layers.length) {
+    drewAvatar = await drawAvatarLayers(ctx, layers, cx, y + 8, ICON);
+  }
+  if (!drewAvatar) {
+    // fallback gray box
+    ctx.fillStyle = '#eee';
+    roundedRect(ctx, cx, y + 8, ICON, ICON, 8);
+    ctx.fill();
+  }
+  cx += ICON + 12;
+
+  // chara icon (smaller)
+  const CHARA = ICON - 12;
+  const chara = await tryLoadImage(player.player_avatar);
+  ctx.fillStyle = '#eee';
+  roundedRect(ctx, cx, y + 14, CHARA, CHARA, 8);
+  ctx.fill();
+  if (chara) {
+    ctx.save();
+    roundedRect(ctx, cx, y + 14, CHARA, CHARA, 8);
+    ctx.clip();
+    ctx.drawImage(chara, cx, y + 14, CHARA, CHARA);
+    ctx.restore();
+  }
+  cx += CHARA + 14;
+
+  // honor + name (left text block)
+  const textW = x + w - cx - 110; // reserve right side for rating
+  ctx.textBaseline = 'top';
+  ctx.font = `12px ${fontFamily}`;
+  ctx.fillStyle = THEME.textSub;
+  fillTextSafe(ctx, player.player_honor || '', cx, y + 8, textW);
+  ctx.font = `bold 22px ${fontFamily}`;
+  ctx.fillStyle = THEME.text;
+  fillTextSafe(ctx, player.player_name || '', cx, y + 24, textW);
+  ctx.font = `12px ${fontFamily}`;
+  ctx.fillStyle = THEME.textSub;
+  fillTextSafe(
+    ctx,
+    [player.player_lv ? 'Lv ' + player.player_lv : '', player.player_team || '']
+      .filter(Boolean)
+      .join(' · '),
+    cx,
+    y + 50,
+    textW,
+  );
+
+  // rating (right)
+  const RX = x + w - PADX;
+  ctx.textAlign = 'right';
+  ctx.font = `11px ${fontFamily}`;
+  ctx.fillStyle = THEME.textSub;
+  ctx.fillText('RATING', RX, y + 10);
+  ctx.font = `800 28px ${fontFamily}`;
+  ctx.fillStyle = THEME.accent;
+  fillTextSafe(ctx, player.player_rating || '0', RX, y + 24);
+  ctx.textAlign = 'left';
+}
+
 export async function renderPlay(play, player) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
@@ -209,23 +304,17 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.text;
   ctx.fillText(String(play.max_combo || 0), RIGHT_X + 110, JUDGE_Y + JUDGE_H + 10);
 
-  // player banner at the bottom
-  const BANNER_Y = H - PAD - 56;
-  ctx.font = `13px ${fontFamily}`;
-  ctx.fillStyle = THEME.textSub;
-  ctx.fillText('PLAYER', PAD + 24, BANNER_Y);
-  ctx.font = `bold 18px ${fontFamily}`;
-  ctx.fillStyle = THEME.text;
-  fillTextSafe(ctx, player.player_name || '', PAD + 24, BANNER_Y + 18);
-
-  ctx.textAlign = 'right';
-  ctx.font = `13px ${fontFamily}`;
-  ctx.fillStyle = THEME.textSub;
-  ctx.fillText('RATING', W - PAD - 24, BANNER_Y);
-  ctx.font = `800 22px ${fontFamily}`;
-  ctx.fillStyle = THEME.accent;
-  fillTextSafe(ctx, player.player_rating || '0', W - PAD - 24, BANNER_Y + 16);
-  ctx.textAlign = 'left';
+  // player banner (avatar + chara + honor + name + rating)
+  const BANNER_H = 80;
+  const BANNER_Y = H - PAD - BANNER_H - 4;
+  await drawPlayerBanner(
+    ctx,
+    player,
+    PAD + 12,
+    BANNER_Y,
+    W - PAD * 2 - 24,
+    BANNER_H,
+  );
 
   return canvas.toBuffer('image/png');
 }
@@ -245,18 +334,38 @@ export async function renderProfile(player) {
   ctx.fillStyle = THEME.card;
   ctx.fill();
 
-  const avatar = await tryLoadImage(player.player_avatar);
-  const A = 220;
+  // big composed avatar on the left
+  const A = 320;
   const AX = PAD + 40;
   const AY = (H - A) / 2;
   ctx.fillStyle = '#eee';
   roundedRect(ctx, AX, AY, A, A, 16);
   ctx.fill();
-  if (avatar) {
+  const layers = parseLayers(player.player_avatar_layers);
+  const drewLayers = await drawAvatarLayers(ctx, layers, AX, AY, A);
+  if (!drewLayers) {
+    const fallback = await tryLoadImage(player.player_avatar);
+    if (fallback) {
+      ctx.save();
+      roundedRect(ctx, AX, AY, A, A, 16);
+      ctx.clip();
+      ctx.drawImage(fallback, AX, AY, A, A);
+      ctx.restore();
+    }
+  }
+
+  // small chara icon on top of avatar (corner)
+  const chara = await tryLoadImage(player.player_avatar);
+  if (chara && drewLayers) {
+    const CHARA = 80;
+    const cx = AX + A - CHARA - 8;
+    const cy = AY + A - CHARA - 8;
     ctx.save();
-    roundedRect(ctx, AX, AY, A, A, 16);
+    roundedRect(ctx, cx, cy, CHARA, CHARA, 12);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
     ctx.clip();
-    ctx.drawImage(avatar, AX, AY, A, A);
+    ctx.drawImage(chara, cx + 4, cy + 4, CHARA - 8, CHARA - 8);
     ctx.restore();
   }
 

@@ -273,7 +273,27 @@
     const avatar = attr(root, '.player_chara img', 'src');
     const lv = text(root, '.player_lv');
     const team = text(root, '.player_team_name');
-    return { name, rating, title: titleStr, avatar, lv, team };
+    // multi-layer avatar (back → front order)
+    const layerOrder = [
+      'back', 'skinfoot_r', 'skinfoot_l', 'skin', 'wear',
+      'face', 'faceCover', 'head', 'hand_r', 'hand_l',
+      'item_r', 'item_l', 'front',
+    ];
+    const group =
+      root.querySelector('.avatar_customise_group') ||
+      root.querySelector('.avatar_group') ||
+      root.querySelector('.avatar_base');
+    const avatarLayers = [];
+    if (group) {
+      for (const name of layerOrder) {
+        const img = group.querySelector(`.avatar_${name} img`);
+        if (img) {
+          const src = img.getAttribute('src');
+          if (src) avatarLayers.push(src);
+        }
+      }
+    }
+    return { name, rating, title: titleStr, avatar, lv, team, avatarLayers };
   }
 
   // ---------- arcade-songs ----------

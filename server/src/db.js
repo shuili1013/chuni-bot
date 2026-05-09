@@ -22,7 +22,8 @@ db.exec(`
     player_lv TEXT,
     player_honor TEXT,
     player_avatar TEXT,
-    player_team TEXT
+    player_team TEXT,
+    player_avatar_layers TEXT
   );
 
   CREATE TABLE IF NOT EXISTS plays (
@@ -61,6 +62,7 @@ const migrations = [
   'ALTER TABLE plays ADD COLUMN cover_url_hd TEXT',
   'ALTER TABLE plays ADD COLUMN chart_level TEXT',
   'ALTER TABLE plays ADD COLUMN chart_internal_level TEXT',
+  'ALTER TABLE users ADD COLUMN player_avatar_layers TEXT',
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch (e) { /* column exists */ }
@@ -91,6 +93,7 @@ export const stmts = {
       player_honor = ?,
       player_avatar = ?,
       player_team = ?,
+      player_avatar_layers = ?,
       last_synced_at = ?
     WHERE discord_id = ?
   `),
