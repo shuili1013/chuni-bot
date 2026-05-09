@@ -267,7 +267,7 @@ export async function renderPlay(play, player) {
 
   // ===== LEFT: layered avatar (composed from SEGA CSS positioning) =====
   const AV_X = PAD + 16;
-  const AV_Y = PAD + 36;
+  const AV_Y = PAD + 70;
   const AV_W = 240;            // frame width on canvas
   const AV_H = (AV_W / AVATAR_FRAME_W) * AVATAR_FRAME_H; // ≈ 291
   const layers = parseLayers(player.player_avatar_layers);
@@ -299,7 +299,7 @@ export async function renderPlay(play, player) {
   // ===== CENTER: cover + song info =====
   const C_X = AV_X + AV_W + 24;
   const COVER = 170;
-  const COVER_Y = PAD + 32;
+  const COVER_Y = PAD + 66;
   const cover =
     (await tryLoadImage(play.cover_url_hd)) ||
     (await tryLoadImage(play.cover_url));
@@ -389,7 +389,7 @@ export async function renderPlay(play, player) {
   // ===== RIGHT: rank badge =====
   const RANK_R = 96;
   const RANK_CX = W - PAD - 24 - RANK_R;
-  const RANK_CY = PAD + 32 + RANK_R + 8;
+  const RANK_CY = COVER_Y + RANK_R + 8;
   drawRankBadge(ctx, play.rank || '', RANK_CX, RANK_CY, RANK_R);
   ctx.textBaseline = 'top';
 
@@ -438,10 +438,10 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.text;
   ctx.fillText(String(play.max_combo || 0), J_X + 130, MC_Y + 15);
 
-  // ===== BOTTOM: player banner (chara as round icon) =====
+  // ===== player banner (chara as round icon) — sits right under MAX COMBO =====
   ctx.textBaseline = 'top';
-  const B_H = 70;
-  const B_Y = H - PAD - B_H - 6;
+  const B_H = 76;
+  const B_Y = MC_Y + 30 + 18;
   const B_X = PAD + 16;
   const B_W = W - PAD * 2 - 32;
 
