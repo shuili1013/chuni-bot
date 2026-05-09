@@ -2,39 +2,47 @@ import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import fs from 'node:fs';
 import { THEME } from './theme.js';
 
-const FONT_CANDIDATES = [
-  // Linux (Docker / Fly.io with fonts-noto-cjk installed)
-  '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
-  '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-  '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc',
-  '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+// register multiple weights / candidates under one family so font-weight maps correctly
+const FONT_CANDIDATE_GROUPS = [
+  // Linux (Docker / Fly.io)
+  [
+    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc',
+  ],
   // macOS
-  '/System/Library/Fonts/PingFang.ttc',
-  '/Library/Fonts/Arial Unicode.ttf',
-  // Windows
-  'C:\\Windows\\Fonts\\msjhbd.ttc',
-  'C:\\Windows\\Fonts\\msjh.ttc',
-  'C:\\Windows\\Fonts\\meiryob.ttc',
-  'C:\\Windows\\Fonts\\meiryo.ttc',
-  'C:\\Windows\\Fonts\\YuGothB.ttc',
-  'C:\\Windows\\Fonts\\YuGothM.ttc',
-  'C:\\Windows\\Fonts\\arial.ttf',
+  ['/System/Library/Fonts/PingFang.ttc'],
+  // Windows — JhengHei (Microsoft 正黑體)
+  [
+    'C:\\Windows\\Fonts\\msjh.ttc',
+    'C:\\Windows\\Fonts\\msjhl.ttc',
+    'C:\\Windows\\Fonts\\msjhbd.ttc',
+  ],
+  // Windows — Meiryo / Yu Gothic fallback
+  ['C:\\Windows\\Fonts\\meiryo.ttc', 'C:\\Windows\\Fonts\\meiryob.ttc'],
+  ['C:\\Windows\\Fonts\\YuGothM.ttc', 'C:\\Windows\\Fonts\\YuGothB.ttc'],
 ];
 let fontFamily = 'sans-serif';
-for (const p of FONT_CANDIDATES) {
-  if (fs.existsSync(p)) {
+for (const group of FONT_CANDIDATE_GROUPS) {
+  let registered = 0;
+  for (const p of group) {
+    if (!fs.existsSync(p)) continue;
     try {
       GlobalFonts.registerFromPath(p, 'PlateSans');
-      fontFamily = 'PlateSans';
-      console.log('[render] using font:', p);
-      break;
+      console.log('[render] registered font:', p);
+      registered++;
     } catch (e) {
       console.warn('[render] font register failed for', p, e.message);
     }
   }
+  if (registered) {
+    fontFamily = 'PlateSans';
+    break;
+  }
 }
 if (fontFamily === 'sans-serif') {
-  console.warn('[render] NO CJK FONT FOUND — text will likely render as boxes');
+  console.warn('[render] NO CJK FONT FOUND — text will render as boxes');
 }
 
 const W = 1056;

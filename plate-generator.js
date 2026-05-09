@@ -102,6 +102,7 @@
   // ---------- diagnostic ----------
   let _dumpedDetail = false;
   let _dumpedPlayer = false;
+  let _dumpedCustomise = false;
   function debugDump(label, doc) {
     try {
       const classes = new Set();
@@ -273,16 +274,18 @@
     const avatar = attr(root, '.player_chara img', 'src');
     const lv = text(root, '.player_lv');
     const team = text(root, '.player_team_name');
-    // multi-layer avatar (back → front order)
+    // multi-layer avatar (back → front order). First find the .avatar_base that
+    // wraps the *current* avatar (skip inventory items that may also use these classes).
     const layerOrder = [
       'back', 'skinfoot_r', 'skinfoot_l', 'skin', 'wear',
       'face', 'faceCover', 'head', 'hand_r', 'hand_l',
       'item_r', 'item_l', 'front',
     ];
-    const group =
+    let group =
+      root.querySelector('.avatar_customise_group .avatar_base') ||
       root.querySelector('.avatar_customise_group') ||
-      root.querySelector('.avatar_group') ||
-      root.querySelector('.avatar_base');
+      root.querySelector('.avatar_base') ||
+      root.querySelector('.avatar_group');
     const avatarLayers = [];
     if (group) {
       for (const name of layerOrder) {
@@ -292,6 +295,12 @@
           if (src) avatarLayers.push(src);
         }
       }
+      LOG('avatar group=', group.className, 'layers=', avatarLayers.length);
+      if (avatarLayers.length) {
+        for (const u of avatarLayers) LOG('  layer:', u);
+      }
+    } else {
+      LOG('avatar group not found in this doc');
     }
     return { name, rating, title: titleStr, avatar, lv, team, avatarLayers };
   }
@@ -614,6 +623,11 @@
       try {
         await sleep(SYNC_MODE ? 250 : 400);
         const cusDoc = await getDoc('/mobile/collection/customise');
+        // one-time dump so we can inspect the actual DOM
+        if (!_dumpedCustomise) {
+          _dumpedCustomise = true;
+          debugDump('CUSTOMISE', cusDoc);
+        }
         const cus = parsePlayer(cusDoc);
         if (cus.avatarLayers && cus.avatarLayers.length) {
           player.avatarLayers = cus.avatarLayers;
