@@ -229,18 +229,26 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.card;
   ctx.fill();
 
-  // ===== LEFT: avatar (composed multi-layer) =====
-  const AV_X = PAD + 16;
-  const AV_Y = PAD + 16;
+  // ===== LEFT: chara avatar (single pre-composed image from SEGA) =====
+  const AV_X = PAD + 24;
+  const AV_Y = PAD + 36;
   const AV_W = 220;
-  const AV_H = 380;
-  const layers = parseLayers(player.player_avatar_layers);
-  const drewAvatar = await drawAvatarLayers(ctx, layers, AV_X, AV_Y, AV_W);
-  // (avatar image is square; we've drawn it AV_W × AV_W into a slot AV_W × AV_H — leaves space at bottom)
-  if (!drewAvatar) {
-    ctx.fillStyle = '#f5f5f5';
+  const charaImg = await tryLoadImage(player.player_avatar);
+  ctx.fillStyle = '#f5f5f5';
+  roundedRect(ctx, AV_X, AV_Y, AV_W, AV_W, 14);
+  ctx.fill();
+  if (charaImg) {
+    ctx.save();
     roundedRect(ctx, AV_X, AV_Y, AV_W, AV_W, 14);
-    ctx.fill();
+    ctx.clip();
+    // chara images aren't always square — fit by contain
+    const ratio = charaImg.width / charaImg.height;
+    let dw = AV_W, dh = AV_W;
+    if (ratio > 1) dh = AV_W / ratio;
+    else dw = AV_W * ratio;
+    ctx.drawImage(charaImg, AV_X + (AV_W - dw) / 2, AV_Y + (AV_W - dh) / 2, dw, dh);
+    ctx.restore();
+  } else {
     ctx.font = `14px ${fontFamily}`;
     ctx.fillStyle = THEME.textSub;
     ctx.textAlign = 'center';
@@ -312,14 +320,24 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.text;
   fillTextSafe(ctx, play.title || '(unknown)', INFO_X, COVER_Y + 42, INFO_W);
 
-  // achievement rate (big) — solid diff color, plain bold
+  // achievement rate — label first (above), then % big with NEW RECORD beside in red
+  ctx.font = `10px ${fontFamily}`;
+  ctx.fillStyle = THEME.textSub;
+  ctx.fillText('ACHIEVEMENT RATE', INFO_X + 4, COVER_Y + 76);
+
   const scoreStr = ((play.score || 0) / 10000).toFixed(4) + '%';
   ctx.fillStyle = diffColor;
   ctx.font = `bold 50px ${fontFamily}`;
-  fillTextSafe(ctx, scoreStr, INFO_X, COVER_Y + 76);
-  ctx.font = `10px ${fontFamily}`;
-  ctx.fillStyle = THEME.textSub;
-  ctx.fillText('ACHIEVEMENT RATE', INFO_X + 4, COVER_Y + 130);
+  fillTextSafe(ctx, scoreStr, INFO_X, COVER_Y + 92);
+
+  // NEW RECORD inline next to the % — bold red
+  if (play.flag_new) {
+    ctx.font = `bold 50px ${fontFamily}`;
+    const scoreW = ctx.measureText(scoreStr).width;
+    ctx.fillStyle = '#e53935';
+    ctx.font = `bold 28px ${fontFamily}`;
+    ctx.fillText('NEW RECORD!', INFO_X + scoreW + 16, COVER_Y + 108);
+  }
 
   // flag pills
   let flagX = INFO_X;
@@ -338,17 +356,13 @@ export async function renderPlay(play, player) {
   if (play.flag_aj) drawFlag('ALL JUSTICE', THEME.flag.aj);
   else if (play.flag_fc) drawFlag('FULL COMBO', THEME.flag.fc);
   else if (play.flag_clear) drawFlag('CLEAR', THEME.flag.clear);
-  if (play.flag_new) drawFlag('NEW', THEME.flag.newRecord);
+  // NEW pill removed — NEW RECORD! is now inline next to the score
 
   // ===== RIGHT: rank badge =====
   const RANK_R = 96;
   const RANK_CX = W - PAD - 24 - RANK_R;
   const RANK_CY = PAD + 32 + RANK_R + 8;
   drawRankBadge(ctx, play.rank || '', RANK_CX, RANK_CY, RANK_R);
-  // NEW RECORD ribbon
-  if (play.flag_new) {
-    drawNewRecordRibbon(ctx, RANK_CX - 46, PAD + 24);
-  }
   ctx.textBaseline = 'top';
 
   // ===== judges row (full width below cover/info) =====
