@@ -118,16 +118,12 @@ export async function renderPlay(play, player) {
   ctx.textBaseline = 'middle';
   ctx.fillText(diffLabel, RIGHT_X + 12, PAD + 28 + 16);
 
-  // level / internal level next to pill
-  const lvParts = [];
-  if (play.chart_level) lvParts.push(play.chart_level);
-  if (play.chart_internal_level && play.chart_internal_level !== play.chart_level) {
-    lvParts.push(`(${play.chart_internal_level})`);
-  }
-  if (lvParts.length) {
+  // chart constant (internal level), fallback to displayed level
+  const lv = play.chart_internal_level || play.chart_level;
+  if (lv) {
     ctx.font = `bold 17px ${fontFamily}`;
     ctx.fillStyle = THEME.text;
-    ctx.fillText('Lv ' + lvParts.join(' '), RIGHT_X + pillW + 10, PAD + 28 + 16);
+    ctx.fillText('Lv ' + lv, RIGHT_X + pillW + 10, PAD + 28 + 16);
   }
 
   // date
