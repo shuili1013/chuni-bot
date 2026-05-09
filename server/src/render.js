@@ -267,7 +267,7 @@ export async function renderPlay(play, player) {
 
   // ===== LEFT: layered avatar (composed from SEGA CSS positioning) =====
   const AV_X = PAD + 16;
-  const AV_Y = PAD + 70;
+  const AV_Y = PAD + 90;
   const AV_W = 240;            // frame width on canvas
   const AV_H = (AV_W / AVATAR_FRAME_W) * AVATAR_FRAME_H; // ≈ 291
   const layers = parseLayers(player.player_avatar_layers);
@@ -299,7 +299,7 @@ export async function renderPlay(play, player) {
   // ===== CENTER: cover + song info =====
   const C_X = AV_X + AV_W + 24;
   const COVER = 170;
-  const COVER_Y = PAD + 66;
+  const COVER_Y = PAD + 86;
   const cover =
     (await tryLoadImage(play.cover_url_hd)) ||
     (await tryLoadImage(play.cover_url));
