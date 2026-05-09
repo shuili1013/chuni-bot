@@ -1,5 +1,6 @@
 import express from 'express';
 import { stmts, playHash } from './db.js';
+import { lookup as lookupSong, coverUrl } from './songdb.js';
 
 export const syncRouter = express.Router();
 
@@ -21,7 +22,7 @@ function authToken(req) {
   return req.query.token || (req.body && req.body.token) || '';
 }
 
-syncRouter.post('/sync', (req, res) => {
+syncRouter.post('/sync', async (req, res) => {
   const token = authToken(req);
   if (!token) return res.status(401).json({ error: 'missing token' });
 
@@ -46,12 +47,17 @@ syncRouter.post('/sync', (req, res) => {
   );
 
   let inserted = 0;
+  let enriched = 0;
   for (const p of plays) {
     const hash = playHash(p);
+    const meta = await lookupSong(p.title, p.difficulty);
+    if (meta) enriched++;
+    const coverHd = meta && meta.imageName ? coverUrl(meta.imageName) : '';
     stmts.upsertPlay.run(
       user.discord_id,
       hash,
       p.title || '',
+      meta ? meta.artist : '',
       p.difficulty || '',
       p.score | 0,
       p.rank || '',
@@ -65,6 +71,9 @@ syncRouter.post('/sync', (req, res) => {
       p.flags && p.flags.aj ? 1 : 0,
       p.flags && p.flags.newRecord ? 1 : 0,
       p.coverFromSega || p.cover || '',
+      coverHd,
+      meta ? meta.level : '',
+      meta ? meta.internalLevel : '',
       p.date || '',
       now,
     );
@@ -75,6 +84,7 @@ syncRouter.post('/sync', (req, res) => {
     ok: true,
     discord_id: user.discord_id,
     plays: inserted,
+    enriched,
     profile: {
       name: player.name || '',
       rating: player.rating || '',

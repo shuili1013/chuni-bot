@@ -29,6 +29,7 @@ db.exec(`
     discord_id TEXT NOT NULL,
     play_hash TEXT NOT NULL,
     title TEXT,
+    artist TEXT,
     difficulty TEXT,
     score INTEGER,
     rank TEXT,
@@ -42,6 +43,9 @@ db.exec(`
     flag_aj INTEGER,
     flag_new INTEGER,
     cover_url TEXT,
+    cover_url_hd TEXT,
+    chart_level TEXT,
+    chart_internal_level TEXT,
     played_at TEXT,
     synced_at INTEGER NOT NULL,
     PRIMARY KEY (discord_id, play_hash)
@@ -50,6 +54,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_plays_user_played
     ON plays (discord_id, played_at DESC);
 `);
+
+// Migrations for existing DBs (idempotent — ignore "duplicate column" errors)
+const migrations = [
+  'ALTER TABLE plays ADD COLUMN artist TEXT',
+  'ALTER TABLE plays ADD COLUMN cover_url_hd TEXT',
+  'ALTER TABLE plays ADD COLUMN chart_level TEXT',
+  'ALTER TABLE plays ADD COLUMN chart_internal_level TEXT',
+];
+for (const sql of migrations) {
+  try { db.exec(sql); } catch (e) { /* column exists */ }
+}
 
 export function newToken() {
   return crypto.randomBytes(18).toString('base64url');
@@ -81,13 +96,15 @@ export const stmts = {
   `),
   upsertPlay: db.prepare(`
     INSERT INTO plays (
-      discord_id, play_hash, title, difficulty, score, rank, max_combo,
+      discord_id, play_hash, title, artist, difficulty, score, rank, max_combo,
       judge_critical, judge_justice, judge_attack, judge_miss,
       flag_clear, flag_fc, flag_aj, flag_new,
-      cover_url, played_at, synced_at
+      cover_url, cover_url_hd, chart_level, chart_internal_level,
+      played_at, synced_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(discord_id, play_hash) DO UPDATE SET
+      artist = excluded.artist,
       score = excluded.score,
       rank = excluded.rank,
       max_combo = excluded.max_combo,
@@ -100,6 +117,9 @@ export const stmts = {
       flag_aj = excluded.flag_aj,
       flag_new = excluded.flag_new,
       cover_url = excluded.cover_url,
+      cover_url_hd = excluded.cover_url_hd,
+      chart_level = excluded.chart_level,
+      chart_internal_level = excluded.chart_internal_level,
       synced_at = excluded.synced_at
   `),
   recentPlays: db.prepare(`

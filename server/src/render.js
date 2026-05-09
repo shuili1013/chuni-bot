@@ -3,22 +3,38 @@ import fs from 'node:fs';
 import { THEME } from './theme.js';
 
 const FONT_CANDIDATES = [
+  // Linux (Docker / Fly.io with fonts-noto-cjk installed)
   '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
   '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
   '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc',
   '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+  // macOS
+  '/System/Library/Fonts/PingFang.ttc',
+  '/Library/Fonts/Arial Unicode.ttf',
+  // Windows
+  'C:\\Windows\\Fonts\\msjhbd.ttc',
+  'C:\\Windows\\Fonts\\msjh.ttc',
+  'C:\\Windows\\Fonts\\meiryob.ttc',
+  'C:\\Windows\\Fonts\\meiryo.ttc',
+  'C:\\Windows\\Fonts\\YuGothB.ttc',
+  'C:\\Windows\\Fonts\\YuGothM.ttc',
+  'C:\\Windows\\Fonts\\arial.ttf',
 ];
 let fontFamily = 'sans-serif';
 for (const p of FONT_CANDIDATES) {
   if (fs.existsSync(p)) {
     try {
-      GlobalFonts.registerFromPath(p, 'NotoCJK');
-      fontFamily = 'NotoCJK';
+      GlobalFonts.registerFromPath(p, 'PlateSans');
+      fontFamily = 'PlateSans';
+      console.log('[render] using font:', p);
       break;
     } catch (e) {
-      // ignore
+      console.warn('[render] font register failed for', p, e.message);
     }
   }
+}
+if (fontFamily === 'sans-serif') {
+  console.warn('[render] NO CJK FONT FOUND — text will likely render as boxes');
 }
 
 const W = 1056;
@@ -67,8 +83,10 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = THEME.card;
   ctx.fill();
 
-  // cover
-  const cover = await tryLoadImage(play.cover_url);
+  // cover — prefer HD (arcade-songs), fallback SEGA
+  const cover =
+    (await tryLoadImage(play.cover_url_hd)) ||
+    (await tryLoadImage(play.cover_url));
   const COVER = 320;
   const COVER_X = PAD + 24;
   const COVER_Y = PAD + 24;
@@ -87,7 +105,7 @@ export async function renderPlay(play, player) {
   const RIGHT_X = COVER_X + COVER + 28;
   const RIGHT_W = W - RIGHT_X - PAD - 24;
 
-  // difficulty pill + date
+  // difficulty pill + level + date
   const diff = (play.difficulty || '').toLowerCase();
   const diffColor = THEME.difficulty[diff] || '#888';
   const diffLabel = THEME.difficultyLabel[diff] || (play.difficulty || '').toUpperCase();
@@ -99,6 +117,18 @@ export async function renderPlay(play, player) {
   ctx.fillStyle = '#fff';
   ctx.textBaseline = 'middle';
   ctx.fillText(diffLabel, RIGHT_X + 12, PAD + 28 + 16);
+
+  // level / internal level next to pill
+  const lvParts = [];
+  if (play.chart_level) lvParts.push(play.chart_level);
+  if (play.chart_internal_level && play.chart_internal_level !== play.chart_level) {
+    lvParts.push(`(${play.chart_internal_level})`);
+  }
+  if (lvParts.length) {
+    ctx.font = `bold 17px ${fontFamily}`;
+    ctx.fillStyle = THEME.text;
+    ctx.fillText('Lv ' + lvParts.join(' '), RIGHT_X + pillW + 10, PAD + 28 + 16);
+  }
 
   // date
   ctx.font = `16px ${fontFamily}`;
