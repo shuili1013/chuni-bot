@@ -179,25 +179,8 @@ async function drawPlayerBanner(ctx, player, x, y, w, h) {
 
 function drawRankBadge(ctx, rank, cx, cy, r) {
   if (!rank) return;
-  // outer rainbow ring (keep, looks nice)
-  const ring = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-  ring.addColorStop(0.00, '#ff6b9d');
-  ring.addColorStop(0.25, '#ffb648');
-  ring.addColorStop(0.50, '#ffe066');
-  ring.addColorStop(0.75, '#7dd3fc');
-  ring.addColorStop(1.00, '#a78bfa');
-  ctx.fillStyle = ring;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fill();
-  // inner white halo
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(cx, cy, r - 8, 0, Math.PI * 2);
-  ctx.fill();
-  // rank text — solid accent color, plain JhengHei
   ctx.fillStyle = THEME.accent;
-  const fontSize = rank.length <= 1 ? r * 1.3 : rank.length <= 2 ? r * 0.95 : r * 0.7;
+  const fontSize = rank.length <= 1 ? r * 1.5 : rank.length <= 2 ? r * 1.1 : r * 0.8;
   ctx.font = `bold ${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
